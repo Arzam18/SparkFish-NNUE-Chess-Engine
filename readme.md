@@ -20,7 +20,7 @@ Also have 3 Style to choose:Aggressive,Normal,Solid.Change it,and Challenge all 
   </p>
   <p>
     <a href="https://en.wikipedia.org/wiki/C%2B%2B20"><img src="https://img.shields.io/badge/C%2B%2B-20-00599C?style=flat-square&logo=c%2B%2B&logoColor=white" alt="C++20"></a>
-    <a href="https://github.com/Lester-chess/SparkFish-NNUE-Chess-Engine"><img src="https://img.shields.io/badge/NNUE-HalfKAv2-orange?style=flat-square" alt="NNUE"></a>
+    <a href="https://github.com/Lester-chess/SparkFish-NNUE-Chess-Engine"><img src="https://img.shields.io/badge/NNUE-K32H3-orange?style=flat-square" alt="NNUE"></a>
     <a href="https://en.wikipedia.org/wiki/Universal_Chess_Interface"><img src="https://img.shields.io/badge/PROTOCOL-UCI-blueviolet?style=flat-square" alt="UCI Protocol"></a>
     <a href="https://github.com/Lester-chess/SparkFish-NNUE-Chess-Engine/releases"><img src="https://img.shields.io/badge/platform-Windows-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Platform - Windows"></a>
     <a href="https://github.com/Lester-chess/SparkFish-NNUE-Chess-Engine/releases"><img src="https://img.shields.io/badge/platform-Android-34A853?style=flat-square&logo=android&logoColor=white" alt="Platform - Android"></a>
