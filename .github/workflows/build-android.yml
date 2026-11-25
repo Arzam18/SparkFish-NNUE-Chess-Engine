@@ -1,0 +1,155 @@
+name: Build SparkFish 4.0 Android OEX
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Download SparkfishV4.nnue
+        run: |
+          curl -fL -o SparkfishV4.nnue "https://github.com/Lester-chess/Sparkfish-NNUE-Pack/releases/download/v5/SparkfishV4.nnue"
+
+      - name: Compile Android arm64-v8a binary (Embedded NNUE)
+        run: |
+          NDK_CXX="$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang++"
+          "$NDK_CXX" -std=c++20 -O3 -DNDEBUG -march=armv8-a+simd -DSPARKFISH_EMBED_NNUE -static-libstdc++ -pthread main.cpp -o sparkfish-4.0-android-arm64
+          ls -lh sparkfish-4.0-android-arm64
+
+      - name: Package & Sign OEX APK
+        run: |
+          set -e
+          BUILD_TOOLS=$(ls -d "$ANDROID_HOME/build-tools/"* | sort -V | tail -n 1)
+          PLATFORM_JAR=$(ls "$ANDROID_HOME/platforms/android-"*/android.jar | sort -V | tail -n 1)
+
+          mkdir -p apk_build/lib/arm64-v8a apk_build/res/xml apk_build/src/com/sparkfish/oex apk_build/classes apk_build/dex apk_build/gen
+          cp sparkfish-4.0-android-arm64 apk_build/lib/arm64-v8a/libsparkfish.so
+
+          cat << 'EOF' > apk_build/res/xml/enginelist.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <enginelist>
+              <engine name="SparkFish 4.0" filename="libsparkfish.so" target="arm64-v8a" />
+          </enginelist>
+          EOF
+
+          cat << 'EOF' > apk_build/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.sparkfish.oex"
+              android:versionCode="400"
+              android:versionName="4.0">
+              <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34" />
+              <application
+                  android:label="SparkFish 4.0"
+                  android:extractNativeLibs="true">
+                  <activity
+                      android:name="com.sparkfish.oex.MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                      <intent-filter>
+                          <action android:name="intent.chess.provider.ENGINE" />
+                      </intent-filter>
+                      <meta-data
+                          android:name="chess.provider.engine.authority"
+                          android:value="com.sparkfish.oex.SparkFishProvider" />
+                  </activity>
+                  <provider
+                      android:name="com.sparkfish.oex.SparkFishProvider"
+                      android:authorities="com.sparkfish.oex.SparkFishProvider"
+                      android:exported="true" />
+              </application>
+          </manifest>
+          EOF
+
+          cat << 'EOF' > apk_build/src/com/sparkfish/oex/MainActivity.java
+          package com.sparkfish.oex;
+
+          import android.app.Activity;
+          import android.graphics.Color;
+          import android.os.Bundle;
+          import android.view.Gravity;
+          import android.widget.TextView;
+
+          public class MainActivity extends Activity {
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  TextView tv = new TextView(this);
+                  tv.setBackgroundColor(Color.BLACK);
+                  tv.setTextColor(Color.WHITE);
+                  tv.setTextSize(18f);
+                  tv.setGravity(Gravity.CENTER);
+                  tv.setPadding(48, 48, 48, 48);
+                  tv.setText("SparkFish 4.0 (OEX Engine)\n\nEmbedded NNUE (arm64-v8a)\n\nOpen DroidFish, Chessis, or any OEX-compatible chess GUI to load SparkFish 4.0.");
+                  setContentView(tv);
+              }
+          }
+          EOF
+
+          cat << 'EOF' > apk_build/src/com/sparkfish/oex/SparkFishProvider.java
+          package com.sparkfish.oex;
+
+          import android.content.ContentProvider;
+          import android.content.ContentValues;
+          import android.database.Cursor;
+          import android.net.Uri;
+          import android.os.ParcelFileDescriptor;
+          import java.io.File;
+          import java.io.FileNotFoundException;
+
+          public class SparkFishProvider extends ContentProvider {
+              @Override public boolean onCreate() { return true; }
+              @Override public Cursor query(Uri u, String[] p, String s, String[] sa, String so) { return null; }
+              @Override public String getType(Uri u) { return "application/x-chess-engine"; }
+              @Override public Uri insert(Uri u, ContentValues v) { return null; }
+              @Override public int delete(Uri u, String s, String[] sa) { return 0; }
+              @Override public int update(Uri u, ContentValues v, String s, String[] sa) { return 0; }
+
+              @Override
+              public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
+                  String name = uri.getLastPathSegment();
+                  if (name == null || !name.equals("libsparkfish.so")) {
+                      throw new FileNotFoundException("Unknown engine file: " + name);
+                  }
+                  File f = new File(getContext().getApplicationInfo().nativeLibraryDir, name);
+                  return ParcelFileDescriptor.open(f, ParcelFileDescriptor.MODE_READ_ONLY);
+              }
+          }
+          EOF
+
+          "$BUILD_TOOLS/aapt2" compile -o apk_build/res.zip --dir apk_build/res
+          "$BUILD_TOOLS/aapt2" link -o apk_build/unsigned.apk -I "$PLATFORM_JAR" --manifest apk_build/AndroidManifest.xml --java apk_build/gen apk_build/res.zip
+          javac -source 1.8 -target 1.8 -classpath "$PLATFORM_JAR" -d apk_build/classes \
+            apk_build/src/com/sparkfish/oex/MainActivity.java \
+            apk_build/src/com/sparkfish/oex/SparkFishProvider.java
+          "$BUILD_TOOLS/d8" --lib "$PLATFORM_JAR" --output apk_build/dex $(find apk_build/classes -name '*.class')
+
+          (cd apk_build/dex && zip -u ../unsigned.apk classes.dex)
+          (cd apk_build && zip -0 -u unsigned.apk lib/arm64-v8a/libsparkfish.so)
+          "$BUILD_TOOLS/zipalign" -p -f 4 apk_build/unsigned.apk apk_build/aligned.apk
+
+          keytool -genkeypair -v -keystore apk_build/release.jks -alias sparkfish \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass sparkfish -keypass sparkfish \
+            -dname "CN=SparkFish, OU=Chess, O=SparkFish Team, L=Unknown, S=Unknown, C=US"
+
+          "$BUILD_TOOLS/apksigner" sign --ks apk_build/release.jks --ks-key-alias sparkfish \
+            --ks-pass pass:sparkfish --key-pass pass:sparkfish \
+            --out SparkFish-4.0-arm64-OEX.apk apk_build/aligned.apk
+          "$BUILD_TOOLS/apksigner" verify SparkFish-4.0-arm64-OEX.apk
+          ls -lh SparkFish-4.0-arm64-OEX.apk
+
+      - name: Upload Android OEX APK & Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: SparkFish-4.0-Android
+          path: |
+            SparkFish-4.0-arm64-OEX.apk
+            sparkfish-4.0-android-arm64
