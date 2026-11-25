@@ -1,0 +1,33 @@
+name: Build SparkFish 4.0 Linux
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Download SparkfishV4.nnue
+        run: |
+          curl -fL -o SparkfishV4.nnue "https://github.com/Lester-chess/Sparkfish-NNUE-Pack/releases/download/v5/SparkfishV4.nnue"
+          ls -lh SparkfishV4.nnue
+
+      - name: Build Linux AVX2 & AVX512 (Embedded NNUE)
+        run: |
+          make avx2
+          make avx512
+
+      - name: Verify embedded NNUE (without external file)
+        run: |
+          rm -f SparkfishV4.nnue
+          printf "uci\nisready\nquit\n" | ./sparkfish-4.0-linux-avx2 | grep -E "SparkFish|NNUE|readyok"
+          ./sparkfish-4.0-linux-avx2 --self-test
+
+      - name: Upload Linux binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: SparkFish-4.0-Linux
+          path: sparkfish-4.0-linux-*
