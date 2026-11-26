@@ -8,7 +8,7 @@
   <p>Supported:Android OEX /Windows</p>
   <div align="center">
 
-SparkFish is a powerful Chess engine using K32H3 NNUE to perform accurate attck and defence.Born to be one of the most strongest engines.
+SparkFish is a powerful C++ Chess engine built from scratch, using Alpha-Beta search and K32H3 NNUE to perform accurate attck and defence.Born to be one of the most strongest engines.
 Also have 3 Style to choose:Aggressive,Normal,Solid.Change it,and Challenge all kinds of opponents.
 
 <div align="center">
